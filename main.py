@@ -2,10 +2,13 @@ import sys
 from PyQt6 import uic
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit,
-    QDateTimeEdit, QDialog, QDialogButtonBox, QFormLayout, QMessageBox
+    QDateEdit, QDialog, QDialogButtonBox,
+    QFormLayout, QMessageBox, QWidget, QLabel,
+    QListWidgetItem, QVBoxLayout, QPushButton
 )
 from design import Ui_Form
-from PyQt6.QtCore import QDateTime
+from datetime import datetime
+from PyQt6.QtCore import QDate
 import sqlite3
 
 
@@ -24,6 +27,7 @@ class TaskManager(QMainWindow, Ui_Form):
                           status TEXT)''')
         conn.commit()
         conn.close()
+        self.show_tasks()
         # обрабатываем нажатия кнопок
         self.add_to_do_btn.clicked.connect(lambda: self.open_task_dialog("to do"))
         self.add_doing_btn.clicked.connect(lambda: self.open_task_dialog("doing"))
@@ -34,7 +38,7 @@ class TaskManager(QMainWindow, Ui_Form):
         dialog = TaskDialog(status, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             description = dialog.description_input.toPlainText()
-            done_date = dialog.date_input.dateTime().toString("yyyy-MM-dd hh:mm")
+            done_date = dialog.date_input.date().toString("yyyy-MM-dd")
             self.add_task(description, done_date, status)
         else:
             pass
@@ -50,11 +54,72 @@ class TaskManager(QMainWindow, Ui_Form):
 
         conn.commit()
         conn.close()
+        for widget in self.status_dict.values():
+            widget.clear()
         self.show_tasks()
 
-    # функция для отображения задач
+    # генерация списков из задач
+    def generate_lst(self, status):
+        conn = sqlite3.connect("tasks.db")
+        cur = conn.cursor()
+        result = cur.execute("""
+        SELECT description, done_date FROM tasks WHERE status = ?
+        """, (status,)).fetchall()
+        result.sort(key=lambda x: x[1])
+        return result
+
+    # стили задач для каждой колонки
+    def add_form(self, tasks, status):
+        self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
+        for task in tasks:
+            item = QListWidgetItem()
+            task_widget = TaskWidget(task[0], task[1])
+
+            item.setSizeHint(task_widget.sizeHint())
+
+            self.status_dict[status].addItem(item)
+            self.status_dict[status].setItemWidget(item, task_widget)
+
+    # отображение задач
     def show_tasks(self):
-        pass
+        self.add_form(self.generate_lst("to do"), "to do")
+        self.add_form(self.generate_lst("doing"), "doing")
+        self.add_form(self.generate_lst("done"), "done")
+
+
+# класс для создания формы задач
+class TaskWidget(QWidget):
+    def __init__(self, description, done_date, parent=None):
+        super(TaskWidget, self).__init__(parent)
+
+        # Основной контейнер для задачи
+        self.setStyleSheet("""
+                    background-color: white;
+                    border-radius: 10px;
+                    border: 1px solid black;
+                    padding: 6px;
+                    color: black;
+                """)
+
+        # Создаем вертикальный контейнер
+        layout = QVBoxLayout()
+
+        # Соединяем описание и дату в одной метке
+        self.task_info_label = QLabel(f"{description}\n{done_date}")
+        self.task_info_label.setStyleSheet("font-size: 18px;")
+        # если до дедлайна остался 1 день - выделяем задачу
+        if (datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days <= 1:
+            self.task_info_label.setStyleSheet("""color: red; font-size: 18px;""")
+
+        # Добавляем метку в вертикальный контейнер
+        layout.addWidget(self.task_info_label)
+
+        # self.action_button = QPushButton("->")
+        # self.action_button.setFixedSize(30, 30)  # Размер маленькой кнопки
+        # layout.addWidget(self.action_button)
+
+        # Устанавливаем главный макет на виджет
+        self.setLayout(layout)
 
 
 # класс для собственного диалога
@@ -63,14 +128,16 @@ class TaskDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Добавить задачу")
 
+        self.setStyleSheet("font-size: 17px;")
+
         self.layout = QFormLayout(self)
 
         self.description_input = QPlainTextEdit(self)
         self.layout.addRow("Описание:", self.description_input)
 
-        self.date_input = QDateTimeEdit(self)
+        self.date_input = QDateEdit(self)
         self.date_input.setCalendarPopup(True)
-        self.date_input.setDateTime(QDateTime.currentDateTime())
+        self.date_input.setDate(QDate.currentDate())
         self.layout.addRow("Дата выполнения:", self.date_input)
 
         # создаем бокс и добавляем кнопки ok и cancel
@@ -83,8 +150,8 @@ class TaskDialog(QDialog):
 
     # нельзя ввести дату в прошлом и поле описания не может быть пустым!
     def accept(self):
-        selected_date = self.date_input.dateTime()
-        current_date = QDateTime.currentDateTime()
+        selected_date = self.date_input.date()
+        current_date = QDate.currentDate()
 
         if self.description_input.toPlainText() == "":
             QMessageBox.warning(self, "Ошибка", "Не введено описание!")
