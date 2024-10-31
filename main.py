@@ -4,20 +4,23 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit,
     QDateEdit, QDialog, QDialogButtonBox,
     QFormLayout, QMessageBox, QWidget, QLabel,
-    QListWidgetItem, QVBoxLayout, QPushButton
+    QListWidgetItem, QVBoxLayout, QPushButton,
+    QMenu, QInputDialog, QListWidget
 )
-from design import Ui_Form
+from design import Ui_TaskManager
+from functools import partial
 from datetime import datetime
-from PyQt6.QtCore import QDate
+from PyQt6.QtCore import QDate, Qt
 import sqlite3
 
 
 # основной класс
-class TaskManager(QMainWindow, Ui_Form):
+class TaskManager(QMainWindow, Ui_TaskManager):
     def __init__(self):
         super(TaskManager, self).__init__()
         uic.loadUi('design.ui', self)
 
+        # создание бд
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS tasks
@@ -27,18 +30,36 @@ class TaskManager(QMainWindow, Ui_Form):
                           status TEXT)''')
         conn.commit()
         conn.close()
+
+        self.request = None  # запрос на сортировку
+        self.sorted_lists = []  # отсортированные списки
+        self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
         self.show_tasks()
-        # обрабатываем нажатия кнопок
+        # кнопки добавления задач
         self.add_to_do_btn.clicked.connect(lambda: self.open_task_dialog("to do"))
         self.add_doing_btn.clicked.connect(lambda: self.open_task_dialog("doing"))
         self.add_done_btn.clicked.connect(lambda: self.open_task_dialog("done"))
 
+        # кнопки сортировки задач
+        self.sort_to_do_btn.clicked.connect(lambda: self.sort_widgets("to do"))
+        self.sort_doing_btn.clicked.connect(lambda: self.sort_widgets("doing"))
+        self.sort_done_btn.clicked.connect(lambda: self.sort_widgets("done"))
+
+        # установка контекстного меню
+        for task_list in [self.to_do_list, self.doing_list, self.done_list]:
+            task_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            # передаем task_list в качестве дополнительного параметра
+            # вызываем контекстное меню нажатием правой кнопкой мыши по задаче
+            task_list.customContextMenuRequested.connect(partial(self.show_context_menu, task_list=task_list))
+            # изменение порядка в колонках
+            task_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+
     # функция для чтения данных от пользователя
     def open_task_dialog(self, status):
-        dialog = TaskDialog(status, self)
+        dialog = TaskDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            description = dialog.description_input.toPlainText()
-            done_date = dialog.date_input.date().toString("yyyy-MM-dd")
+            description = dialog.description_input.toPlainText()  # описание
+            done_date = dialog.date_input.date().toString("yyyy-MM-dd")  # дата окончания
             self.add_task(description, done_date, status)
         else:
             pass
@@ -47,15 +68,18 @@ class TaskManager(QMainWindow, Ui_Form):
     def add_task(self, description, done_date, status):
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
-
         cur.execute('''
                     INSERT INTO tasks (description, done_date, status) VALUES (?, ?, ?)
                 ''', (description, done_date, status))
-
         conn.commit()
         conn.close()
-        for widget in self.status_dict.values():
-            widget.clear()
+        self.show_tasks()
+
+    # сортировка по дате при нажатии на кнопку
+    def sort_widgets(self, status):
+        self.request = status
+        if status not in self.sorted_lists:
+            self.sorted_lists.append(status)
         self.show_tasks()
 
     # генерация списков из задач
@@ -72,7 +96,8 @@ class TaskManager(QMainWindow, Ui_Form):
         result = cur.execute("""
         SELECT description, done_date FROM tasks WHERE status = ?
         """, (status,)).fetchall()
-        result.sort(key=lambda x: x[1])
+        if status in self.sorted_lists:  # сортируем по дате
+            result.sort(key=lambda x: x[1])
         conn.close()
         return result
 
@@ -80,13 +105,13 @@ class TaskManager(QMainWindow, Ui_Form):
     def add_form(self, tasks, status):
         if status == "expired":
             tasks.sort(key=lambda x: x[1])
-        self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
 
         for task in tasks:
             item = QListWidgetItem()
             task_widget = TaskWidget(task[0], task[1], status)
             item.setSizeHint(task_widget.sizeHint())
 
+            # добавляем задачи в колонки
             if status == "expired":
                 self.status_dict["done"].addItem(item)
                 self.status_dict["done"].setItemWidget(item, task_widget)
@@ -96,15 +121,71 @@ class TaskManager(QMainWindow, Ui_Form):
 
     # отображение задач
     def show_tasks(self):
+        # очищаем и заполняем колонки
+        for widget in self.status_dict.values():
+            widget.clear()
         self.add_form(self.generate_lst("to do"), "to do")
         self.add_form(self.generate_lst("doing"), "doing")
         self.add_form(self.generate_lst("done"), "done")
         self.add_form(self.generate_lst("expired"), "expired")
 
+    # отображение контекстного меню
+    def show_context_menu(self, position, task_list):
+        menu = QMenu(self)
+
+        edit_action = menu.addAction("Редактировать")
+        delete_action = menu.addAction("Удалить")
+
+        action = menu.exec(task_list.mapToGlobal(position))
+        if action == edit_action:
+            self.edit_task(task_list)
+        elif action == delete_action:
+            self.delete_task(task_list)
+
+    # редактирование задач
+    def edit_task(self, task_list):
+        item = task_list.currentItem()  # текущая задача
+        if item:
+            task_widget = task_list.itemWidget(item)
+            if task_widget:
+                old_description = task_widget.get_description()  # достаем старое описание
+                new_description, ok = QInputDialog.getText(self, 'Редактирование задачи', 'Описание:',
+                                                           text=old_description)
+                if ok and new_description:
+                    conn = sqlite3.connect("tasks.db")
+                    cur = conn.cursor()
+                    # обновляем описание
+                    cur.execute("UPDATE tasks SET description = ? WHERE description = ?",
+                                (new_description, old_description))
+                    conn.commit()
+                    conn.close()
+                    self.show_tasks()
+
+    # удаление задач
+    def delete_task(self, task_list):
+        item = task_list.currentItem()
+        if item:
+            task_widget = task_list.itemWidget(item)
+            if task_widget:
+                description = task_widget.get_description()
+                reply = QMessageBox.question(self, 'Удаление задачи', f'Удалить "{description}"?',
+                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                             QMessageBox.StandardButton.No)
+                if reply == QMessageBox.StandardButton.Yes:
+                    conn = sqlite3.connect("tasks.db")
+                    cur = conn.cursor()
+                    # удаляем задачу
+                    cur.execute("DELETE FROM tasks WHERE description = ?", (description,))
+                    conn.commit()
+                    self.show_tasks()
+                else:
+                    pass
+
 
 # класс для создания формы задач
 class TaskWidget(QWidget):
     def __init__(self, description, done_date, status, parent=None):
+        self.description = description
         super(TaskWidget, self).__init__(parent)
 
         # Основной контейнер для задачи
@@ -124,7 +205,7 @@ class TaskWidget(QWidget):
         self.task_info_label.setStyleSheet("font-size: 18px;")
         # если до дедлайна остался 1 день или задача просрочена - выделяем задачу
         if ((datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days <= 1
-                and status != "done") or status == "expired":
+            and status != "done") or status == "expired":
             self.task_info_label.setStyleSheet("""color: red; font-size: 18px;""")
 
         # Добавляем метку в вертикальный контейнер
@@ -137,11 +218,14 @@ class TaskWidget(QWidget):
         # Устанавливаем главный макет на виджет
         self.setLayout(layout)
 
-        # класс для собственного диалога
+    # получение описания
+    def get_description(self):
+        return self.description
 
 
+# класс для собственного диалога
 class TaskDialog(QDialog):
-    def __init__(self, status, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Добавить задачу")
 
@@ -154,7 +238,7 @@ class TaskDialog(QDialog):
 
         self.date_input = QDateEdit(self)
         self.date_input.setCalendarPopup(True)
-        self.date_input.setDate(QDate.currentDate())
+        self.date_input.setDate(QDate.currentDate())  # по умолчанию текущая дата
         self.layout.addRow("Дата выполнения:", self.date_input)
 
         # создаем бокс и добавляем кнопки ok и cancel
