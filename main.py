@@ -62,34 +62,49 @@ class TaskManager(QMainWindow, Ui_Form):
     def generate_lst(self, status):
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
+        # меняем статус просроченных задач
+        expired = cur.execute("""
+        UPDATE tasks
+        SET status = 'expired'
+        WHERE date(done_date) < date('now')
+        """)
+        conn.commit()
         result = cur.execute("""
         SELECT description, done_date FROM tasks WHERE status = ?
         """, (status,)).fetchall()
         result.sort(key=lambda x: x[1])
+        conn.close()
         return result
 
     # стили задач для каждой колонки
     def add_form(self, tasks, status):
+        if status == "expired":
+            tasks.sort(key=lambda x: x[1])
         self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
+
         for task in tasks:
             item = QListWidgetItem()
-            task_widget = TaskWidget(task[0], task[1])
-
+            task_widget = TaskWidget(task[0], task[1], status)
             item.setSizeHint(task_widget.sizeHint())
 
-            self.status_dict[status].addItem(item)
-            self.status_dict[status].setItemWidget(item, task_widget)
+            if status == "expired":
+                self.status_dict["done"].addItem(item)
+                self.status_dict["done"].setItemWidget(item, task_widget)
+            else:
+                self.status_dict[status].addItem(item)
+                self.status_dict[status].setItemWidget(item, task_widget)
 
     # отображение задач
     def show_tasks(self):
         self.add_form(self.generate_lst("to do"), "to do")
         self.add_form(self.generate_lst("doing"), "doing")
         self.add_form(self.generate_lst("done"), "done")
+        self.add_form(self.generate_lst("expired"), "expired")
 
 
 # класс для создания формы задач
 class TaskWidget(QWidget):
-    def __init__(self, description, done_date, parent=None):
+    def __init__(self, description, done_date, status, parent=None):
         super(TaskWidget, self).__init__(parent)
 
         # Основной контейнер для задачи
@@ -107,8 +122,9 @@ class TaskWidget(QWidget):
         # Соединяем описание и дату в одной метке
         self.task_info_label = QLabel(f"{description}\n{done_date}")
         self.task_info_label.setStyleSheet("font-size: 18px;")
-        # если до дедлайна остался 1 день - выделяем задачу
-        if (datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days <= 1:
+        # если до дедлайна остался 1 день или задача просрочена - выделяем задачу
+        if ((datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days <= 1
+                and status != "done") or status == "expired":
             self.task_info_label.setStyleSheet("""color: red; font-size: 18px;""")
 
         # Добавляем метку в вертикальный контейнер
@@ -121,8 +137,9 @@ class TaskWidget(QWidget):
         # Устанавливаем главный макет на виджет
         self.setLayout(layout)
 
+        # класс для собственного диалога
 
-# класс для собственного диалога
+
 class TaskDialog(QDialog):
     def __init__(self, status, parent=None):
         super().__init__(parent)
