@@ -92,21 +92,21 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         """)
         conn.commit()
         result = cur.execute("""
-        SELECT description, done_date FROM tasks WHERE status = ?
+        SELECT id, description, done_date FROM tasks WHERE status = ?
         """, (status,)).fetchall()
         if status in self.sorted_lists:  # сортируем по дате
-            result.sort(key=lambda x: x[1])
+            result.sort(key=lambda x: x[2])
         conn.close()
         return result
 
     # стили задач для каждой колонки
     def add_form(self, tasks, status):
         if status == "expired":
-            tasks.sort(key=lambda x: x[1])
+            tasks.sort(key=lambda x: x[2])
 
         for task in tasks:
             item = QListWidgetItem()
-            task_widget = TaskWidget(task[0], task[1], status)
+            task_widget = TaskWidget(task[0], task[1], task[2], status)
             item.setSizeHint(task_widget.sizeHint())
 
             # добавляем задачи в колонки
@@ -167,22 +167,25 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             task_widget = task_list.itemWidget(item)
             if task_widget:
                 description = task_widget.get_description()
+                # запрашиваем подтверждение
                 reply = QMessageBox.question(self, 'Удаление задачи', f'Удалить "{description}"?',
                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                             QMessageBox.StandardButton.No)
+                                             QMessageBox.StandardButton.Yes)
                 if reply == QMessageBox.StandardButton.Yes:
                     conn = sqlite3.connect("tasks.db")
                     cur = conn.cursor()
                     # удаляем задачу
-                    cur.execute("DELETE FROM tasks WHERE description = ?", (description,))
+                    current_id = task_widget.get_id()  # получаем id
+                    cur.execute("DELETE FROM tasks WHERE id = ?", (current_id,))
                     conn.commit()
                     self.show_tasks()
 
 
 # класс для создания формы задач
 class TaskWidget(QWidget):
-    def __init__(self, description, done_date, status, parent=None):
+    def __init__(self, id, description, done_date, status, parent=None):
         self.description = description
+        self.id = id
         super(TaskWidget, self).__init__(parent)
 
         # Основной контейнер для задачи
@@ -218,6 +221,10 @@ class TaskWidget(QWidget):
     # получение описания
     def get_description(self):
         return self.description
+
+    # получение id
+    def get_id(self):
+        return self.id
 
 
 # класс для собственного диалога
