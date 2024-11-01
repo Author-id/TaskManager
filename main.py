@@ -61,8 +61,6 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             description = dialog.description_input.toPlainText()  # описание
             done_date = dialog.date_input.date().toString("yyyy-MM-dd")  # дата окончания
             self.add_task(description, done_date, status)
-        else:
-            pass
 
     # функция добавления задач в базу
     def add_task(self, description, done_date, status):
@@ -131,11 +129,12 @@ class TaskManager(QMainWindow, Ui_TaskManager):
 
     # отображение контекстного меню
     def show_context_menu(self, position, task_list):
-        menu = QMenu(self)
+        menu = QMenu(self)  # Создаем объект контекстного меню
 
         edit_action = menu.addAction("Редактировать")
         delete_action = menu.addAction("Удалить")
 
+        # Отображаем меню и получаем выбранное пользователем действие
         action = menu.exec(task_list.mapToGlobal(position))
         if action == edit_action:
             self.edit_task(task_list)
@@ -178,8 +177,6 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                     cur.execute("DELETE FROM tasks WHERE description = ?", (description,))
                     conn.commit()
                     self.show_tasks()
-                else:
-                    pass
 
 
 # класс для создания формы задач
