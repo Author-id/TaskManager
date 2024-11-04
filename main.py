@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit,
     QDateEdit, QDialog, QDialogButtonBox,
     QFormLayout, QMessageBox, QWidget, QLabel,
-    QListWidgetItem, QVBoxLayout, QPushButton,
-    QMenu, QInputDialog, QListWidget
+    QListWidgetItem, QVBoxLayout, QAbstractItemView,
+    QMenu, QInputDialog
 )
 from design import Ui_TaskManager
 from functools import partial
@@ -34,7 +34,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         self.request = None  # запрос на сортировку
         self.sorted_lists = []  # отсортированные списки
         self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
-        self.show_tasks()
+        self.front_status_dict = {self.to_do_list: "to do", self.doing_list: "doing", self.done_list: "done"}
+
         # кнопки добавления задач
         self.add_to_do_btn.clicked.connect(lambda: self.open_task_dialog("to do"))
         self.add_doing_btn.clicked.connect(lambda: self.open_task_dialog("doing"))
@@ -45,14 +46,20 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         self.sort_doing_btn.clicked.connect(lambda: self.sort_widgets("doing"))
         self.sort_done_btn.clicked.connect(lambda: self.sort_widgets("done"))
 
-        # установка контекстного меню
-        for task_list in [self.to_do_list, self.doing_list, self.done_list]:
+        # установка контекстного меню и режима перемещения
+        for task_list in self.status_dict.values():
             task_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             # передаем task_list в качестве дополнительного параметра
             # вызываем контекстное меню нажатием правой кнопкой мыши по задаче
             task_list.customContextMenuRequested.connect(partial(self.show_context_menu, task_list=task_list))
-            # изменение порядка в колонках
-            task_list.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+            # устанавливаем режим перемещения
+            task_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+            task_list.setAcceptDrops(True)
+            task_list.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
+
+            task_list.currentItemChanged.connect(partial(self.item_clicked, task_list=task_list))
+
+        self.show_tasks()
 
     # функция для чтения данных от пользователя
     def open_task_dialog(self, status):
@@ -66,12 +73,16 @@ class TaskManager(QMainWindow, Ui_TaskManager):
     def add_task(self, description, done_date, status):
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
-        cur.execute('''
-                    INSERT INTO tasks (description, done_date, status) VALUES (?, ?, ?)
-                ''', (description, done_date, status))
-        conn.commit()
-        conn.close()
-        self.show_tasks()
+        try:
+            cur.execute('''
+                        INSERT INTO tasks (description, done_date, status) VALUES (?, ?, ?)
+                    ''', (description, done_date, status))
+        except sqlite3.Error as error:
+            print(f"Ошибка: {error}")
+        finally:
+            conn.commit()
+            conn.close()
+            self.show_tasks()
 
     # сортировка по дате при нажатии на кнопку
     def sort_widgets(self, status):
@@ -126,6 +137,43 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         self.add_form(self.generate_lst("doing"), "doing")
         self.add_form(self.generate_lst("done"), "done")
         self.add_form(self.generate_lst("expired"), "expired")
+
+    def item_clicked(self, arg, task_list):
+        # print(arg)
+        selected_items = task_list.selectedItems()
+        if selected_items:
+            print("элементы найдены")
+        else:
+            pass
+
+        for item in selected_items:
+            self.create_drop_event(item, task_list, self.front_status_dict[task_list])
+
+    # функция изменения статуса
+    def create_drop_event(self, list_item, task_list, status):
+        item = list_item  # Получаем элемент по позиции сброса
+        print(f"элемент {item} получен в функцию")
+        if item:
+            task_widget = task_list.itemWidget(item)  # Извлекаем виджет из элемента
+            if task_widget:
+                task_id = task_widget.get_id()  # Предполагаем, что id хранятся в виджете
+
+                # Обновление статуса задачи в базе данных
+                conn = sqlite3.connect("tasks.db")
+                cur = conn.cursor()
+                try:
+                    cur.execute('UPDATE tasks SET status = ? WHERE id = ?', (status, task_id))
+                    conn.commit()
+                    print(f"Статус задачи с ID {task_id} обновлен на {status}")
+                except sqlite3.Error as e:
+                    print("Ошибка базы данных:", e)
+                finally:
+                    conn.close()
+                    self.show_tasks()  # Обновляем список задач
+            else:
+                print("Не найден виджет элемента")
+        else:
+            print("Не найден элемент по позиции сброса")
 
     # отображение контекстного меню
     def show_context_menu(self, position, task_list):
@@ -186,6 +234,7 @@ class TaskWidget(QWidget):
     def __init__(self, id, description, done_date, status, parent=None):
         self.description = description
         self.id = id
+        self.status = status
         super(TaskWidget, self).__init__(parent)
 
         # Основной контейнер для задачи
@@ -211,10 +260,6 @@ class TaskWidget(QWidget):
         # Добавляем метку в вертикальный контейнер
         layout.addWidget(self.task_info_label)
 
-        # self.action_button = QPushButton("->")
-        # self.action_button.setFixedSize(30, 30)  # Размер маленькой кнопки
-        # layout.addWidget(self.action_button)
-
         # Устанавливаем главный макет на виджет
         self.setLayout(layout)
 
@@ -225,6 +270,9 @@ class TaskWidget(QWidget):
     # получение id
     def get_id(self):
         return self.id
+
+    def get_status(self):
+        return self.status
 
 
 # класс для собственного диалога
