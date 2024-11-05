@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QMenu, QInputDialog, QListWidget, QAbstractItemView
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDrag, QPixmap
-from PyQt6.QtCore import QDate, Qt, QRect, QMimeData, QByteArray, QDataStream, QIODevice
+from PyQt6.QtCore import QDate, Qt, QMimeData, QByteArray, QDataStream, QIODevice
 from design import Ui_TaskManager
 from functools import partial
 from datetime import datetime
@@ -21,88 +21,22 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         super(TaskManager, self).__init__()
         uic.loadUi('design.ui', self)
 
-        # переопределение колонок со статусами под кастомный QListWidget и задание стилей
-        self.to_do_list = CustomListWidget("to do", self)
-        self.to_do_list.setGeometry(QRect(10, 70, 351, 711))
-        font = QtGui.QFont()
-        font.setPointSize(11)
-        self.to_do_list.setFont(font)
-        self.to_do_list.setStyleSheet("   QListWidget {\n"
-                                      "       border: 2px solid black;\n"
-                                      "       background-color: rgb(230, 230, 230);\n"
-                                      "   }\n"
-                                      "   \n"
-                                      "")
-        self.to_do_list.setObjectName("to_do_list")
+        self.sorted_lists = []  # отсортированные списки
+        self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
+        self.btn_dict = {"to do": self.add_to_do_ex_btn, "doing": self.add_doing_ex_btn, "done": self.add_done_ex_btn}
 
-        self.doing_list = CustomListWidget("doing", self)
-        self.doing_list.setGeometry(QRect(360, 70, 351, 711))
-        font = QtGui.QFont()
-        font.setPointSize(11)
-        self.doing_list.setFont(font)
-        self.doing_list.setStyleSheet("   QListWidget {\n"
-                                      "       border: 2px solid black;\n"
-                                      "       background-color: rgb(230, 230, 230);\n"
-                                      "   }\n"
-                                      "   \n"
-                                      "")
-        self.doing_list.setObjectName("doing_list")
-
-        self.done_list = CustomListWidget("done", self)
-        self.done_list.setGeometry(QRect(710, 70, 351, 711))
-        font = QtGui.QFont()
-        font.setPointSize(11)
-        self.done_list.setFont(font)
-        self.done_list.setStyleSheet("   QListWidget {\n"
-                                     "       border: 2px solid black;\n"
-                                     "       background-color: rgb(230, 230, 230);\n"
-                                     "   }\n"
-                                     "   \n"
-                                     "")
-        self.done_list.setObjectName("done_list")
-
+        # переопределение кнопок и колонок со статусами под класс CustomListWidget и задание стилей
+        self.to_do_lst = CustomListWidget("to do", self)
         self.add_to_do_btn = QPushButton("+", self)
-        self.add_to_do_btn.setGeometry(QRect(160, 710, 51, 51))
-        font = QtGui.QFont()
-        font.setPointSize(25)
-        self.add_to_do_btn.setFont(font)
-        self.add_to_do_btn.setStyleSheet("   QPushButton {\n"
-                                         "       border-radius: 25px;\n"
-                                         "       background-color: rgb(37, 208, 255);\n"
-                                         "       border: 1,5px solid black;\n"
-                                         "   }\n"
-                                         "\n"
-                                         "   \n"
-                                         "")
-        self.add_to_do_btn.setObjectName("add_to_do_btn")
+        self.remake_to_custom(self.to_do_lst, self.add_to_do_btn, "to do")
+
+        self.doing_lst = CustomListWidget("doing", self)
         self.add_doing_btn = QPushButton("+", self)
-        self.add_doing_btn.setGeometry(QRect(510, 710, 51, 51))
-        font = QtGui.QFont()
-        font.setPointSize(25)
-        self.add_doing_btn.setFont(font)
-        self.add_doing_btn.setStyleSheet("   QPushButton {\n"
-                                         "       border-radius: 25px;\n"
-                                         "       background-color: rgb(37, 208, 255);\n"
-                                         "       border: 1,5px solid black;\n"
-                                         "   }\n"
-                                         "\n"
-                                         "   \n"
-                                         "")
-        self.add_doing_btn.setObjectName("add_doing_btn")
+        self.remake_to_custom(self.doing_lst, self.add_doing_btn, "doing")
+
+        self.done_lst = CustomListWidget("done", self)
         self.add_done_btn = QPushButton("+", self)
-        self.add_done_btn.setGeometry(QRect(860, 710, 51, 51))
-        font = QtGui.QFont()
-        font.setPointSize(25)
-        self.add_done_btn.setFont(font)
-        self.add_done_btn.setStyleSheet("   QPushButton {\n"
-                                        "       border-radius: 25px;\n"
-                                        "       background-color: rgb(37, 208, 255);\n"
-                                        "       border: 1,5px solid black;\n"
-                                        "   }\n"
-                                        "\n"
-                                        "   \n"
-                                        "")
-        self.add_done_btn.setObjectName("add_done_btn")
+        self.remake_to_custom(self.done_lst, self.add_done_btn, "done")
 
         # создание бд
         conn = sqlite3.connect("tasks.db")
@@ -114,11 +48,6 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                                           status TEXT)''')
         conn.commit()
         conn.close()
-
-        self.request = None  # запрос на сортировку
-        self.sorted_lists = []  # отсортированные списки
-        self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
-        self.front_status_dict = {self.to_do_list: "to do", self.doing_list: "doing", self.done_list: "done"}
 
         # кнопки добавления задач
         self.add_to_do_btn.clicked.connect(lambda: self.open_task_dialog("to do"))
@@ -142,7 +71,18 @@ class TaskManager(QMainWindow, Ui_TaskManager):
 
         self.show_tasks()
 
-    # функция для чтения данных от пользователя
+    # переопределение колонок под кастомный класс
+    def remake_to_custom(self, task_list, btn, status):
+        task_list.setGeometry(self.status_dict[status].geometry())  # расположение и размеры
+        task_list.setStyleSheet(self.status_dict[status].styleSheet())  # стили
+        self.status_dict[status] = task_list
+        btn.setGeometry(self.btn_dict[status].geometry())
+        btn.setStyleSheet(self.btn_dict[status].styleSheet())
+        font = QtGui.QFont()
+        font.setPointSize(25)  # размер текста
+        btn.setFont(font)
+
+    # чтение данных от пользователя
     def open_task_dialog(self, status):
         dialog = TaskDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -150,7 +90,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             done_date = dialog.date_input.date().toString("yyyy-MM-dd")  # дата окончания
             self.add_task(description, done_date, status)
 
-    # функция добавления задач в базу
+    # добавление задач в базу
     def add_task(self, description, done_date, status):
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
@@ -167,7 +107,6 @@ class TaskManager(QMainWindow, Ui_TaskManager):
 
     # сортировка по дате при нажатии на кнопку
     def sort_widgets(self, status):
-        self.request = status
         if status not in self.sorted_lists:
             self.sorted_lists.append(status)
         self.show_tasks()
@@ -273,6 +212,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                     self.show_tasks()
 
 
+# кастомный расширенный класс для реализации режима DragDropMde
 class CustomListWidget(QListWidget):
     def __init__(self, status, parent=None):
         super(CustomListWidget, self).__init__(parent)
@@ -292,7 +232,7 @@ class CustomListWidget(QListWidget):
 
     def startDrag(self, supportedActions):
         item = self.currentItem()  # текущий элемент
-        widget = self.itemWidget(item) # получаем виджет
+        widget = self.itemWidget(item)  # получаем виджет
         if widget is None:
             return
 
@@ -385,9 +325,8 @@ class CustomListWidget(QListWidget):
         try:
             cur.execute('UPDATE tasks SET status = ? WHERE id = ?', (status, task_id))
             conn.commit()
-            print(f"Статус задачи с ID {task_id} обновлен на {status}")
-        except sqlite3.Error as e:
-            print("Ошибка базы данных:", e)
+        except sqlite3.Error as error:
+            print("Ошибка базы данных:", error)
         finally:
             conn.close()
 
