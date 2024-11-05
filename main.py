@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit,
     QDateEdit, QDialog, QDialogButtonBox,
     QFormLayout, QMessageBox, QWidget, QLabel,
-    QListWidgetItem, QVBoxLayout,
+    QListWidgetItem, QVBoxLayout, QPushButton,
     QMenu, QInputDialog, QListWidget, QAbstractItemView
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDrag, QPixmap
@@ -60,6 +60,49 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                                      "   \n"
                                      "")
         self.done_list.setObjectName("done_list")
+
+        self.add_to_do_btn = QPushButton("+", self)
+        self.add_to_do_btn.setGeometry(QRect(160, 710, 51, 51))
+        font = QtGui.QFont()
+        font.setPointSize(25)
+        self.add_to_do_btn.setFont(font)
+        self.add_to_do_btn.setStyleSheet("   QPushButton {\n"
+                                         "       border-radius: 25px;\n"
+                                         "       background-color: rgb(37, 208, 255);\n"
+                                         "       border: 1,5px solid black;\n"
+                                         "   }\n"
+                                         "\n"
+                                         "   \n"
+                                         "")
+        self.add_to_do_btn.setObjectName("add_to_do_btn")
+        self.add_doing_btn = QPushButton("+", self)
+        self.add_doing_btn.setGeometry(QRect(510, 710, 51, 51))
+        font = QtGui.QFont()
+        font.setPointSize(25)
+        self.add_doing_btn.setFont(font)
+        self.add_doing_btn.setStyleSheet("   QPushButton {\n"
+                                         "       border-radius: 25px;\n"
+                                         "       background-color: rgb(37, 208, 255);\n"
+                                         "       border: 1,5px solid black;\n"
+                                         "   }\n"
+                                         "\n"
+                                         "   \n"
+                                         "")
+        self.add_doing_btn.setObjectName("add_doing_btn")
+        self.add_done_btn = QPushButton("+", self)
+        self.add_done_btn.setGeometry(QRect(860, 710, 51, 51))
+        font = QtGui.QFont()
+        font.setPointSize(25)
+        self.add_done_btn.setFont(font)
+        self.add_done_btn.setStyleSheet("   QPushButton {\n"
+                                        "       border-radius: 25px;\n"
+                                        "       background-color: rgb(37, 208, 255);\n"
+                                        "       border: 1,5px solid black;\n"
+                                        "   }\n"
+                                        "\n"
+                                        "   \n"
+                                        "")
+        self.add_done_btn.setObjectName("add_done_btn")
 
         # создание бд
         conn = sqlite3.connect("tasks.db")
@@ -134,7 +177,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
         # меняем статус просроченных задач
-        expired = cur.execute("""
+        cur.execute("""
         UPDATE tasks
         SET status = 'expired'
         WHERE date(done_date) < date('now')
@@ -194,7 +237,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
     def edit_task(self, task_list):
         item = task_list.currentItem()  # текущая задача
         if item:
-            task_widget = task_list.itemWidget(item)
+            task_widget = task_list.itemWidget(item)  # получаем виджет
             if task_widget:
                 old_description = task_widget.get_description()  # достаем старое описание
                 new_description, ok = QInputDialog.getText(self, 'Редактирование задачи', 'Описание:',
@@ -235,57 +278,61 @@ class CustomListWidget(QListWidget):
         super(CustomListWidget, self).__init__(parent)
         self.status = status  # Статус задач в данном списке
 
-        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
-        self.setDragEnabled(True)
-        self.setAcceptDrops(True)
-        self.setDropIndicatorShown(True)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.setSpacing(5)
+        # Установка режимов
+        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)  # однократный выбор
+        self.setDragEnabled(True)  # Включение перетаскивания элементов
+        self.setAcceptDrops(True)  # Разрешение на прием сброса элементов
+        self.setDropIndicatorShown(True)  # Показ индикатора сброса при перемещении
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)  # перемещение по умолчанию
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            # Сохраняем позицию начала перетаскивания
-            self.drag_start_position = event.pos()
+            self.drag_start_position = event.pos()  # позиция начала
         super().mousePressEvent(event)
 
     def startDrag(self, supportedActions):
-        item = self.currentItem()
-        widget = self.itemWidget(item)
+        item = self.currentItem()  # текущий элемент
+        widget = self.itemWidget(item) # получаем виджет
         if widget is None:
             return
 
-        # Создаем QMimeData и сохраняем данные
+        # Создаем QMimeData для передачи данных элемента
         mime_data = QMimeData()
         data = QByteArray()
         stream = QDataStream(data, QIODevice.OpenModeFlag.WriteOnly)
+        # Записываем описание, дату выполнения и ID задачи в поток данных
         stream.writeQString(widget.get_description())
         stream.writeQString(widget.get_done_date())
         stream.writeInt(widget.get_id())
         mime_data.setData('application/x-item', data)
 
-        # Создаем изображение для drag
+        # Создаем изображение, чтобы отобразить во время перетаскивания
         pixmap = QPixmap(widget.size())
         widget.render(pixmap)
 
+        # Настройка объекта QDrag
         drag = QDrag(self)
         drag.setMimeData(mime_data)
         drag.setPixmap(pixmap)
 
-        # Вычисляем горячую точку (hotSpot)
+        # Вычисляем горячую точку, чтобы объект взялся за правильное место
         if self.drag_start_position:
             rect = self.visualItemRect(item)
             hotSpot = self.drag_start_position - rect.topLeft()
             drag.setHotSpot(hotSpot)
 
+        # Начинаем перемещение элемента
         drag.exec(Qt.DropAction.MoveAction)
 
     def dragEnterEvent(self, event: QDragEnterEvent):
+        # Проверяем формат данных и решаем принимать или игнорировать событие
         if event.mimeData().hasFormat('application/x-item'):
             event.accept()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event: QDragEnterEvent):
+        # Устанавливаем действие перемещения и принимаем событие, если данные в нужном формате
         if event.mimeData().hasFormat('application/x-item'):
             event.setDropAction(Qt.DropAction.MoveAction)
             event.accept()
@@ -293,40 +340,44 @@ class CustomListWidget(QListWidget):
             event.ignore()
 
     def dropEvent(self, event: QDropEvent):
+        # Проверяем формат данных при сбросе
         if event.mimeData().hasFormat('application/x-item'):
             data = event.mimeData().data('application/x-item')
             stream = QDataStream(data, QIODevice.OpenModeFlag.ReadOnly)
+            # Извлекаем описание, дату выполнения и ID задачи
             description = stream.readQString()
             done_date = stream.readQString()
             task_id = stream.readInt()
 
-            # Добавляем элемент в текущий список
+            # Подготовка к добавлению нового элемента в текущий список
             new_item = QListWidgetItem()
             new_task_widget = TaskWidget(task_id, description, done_date, self.status)
             new_item.setSizeHint(new_task_widget.sizeHint())
+            # Добавляем элемент в список и привязываем к нему виджет
             self.addItem(new_item)
             self.setItemWidget(new_item, new_task_widget)
 
-            # Обновляем статус
+            # Обновляем статус задачи
             self.update_task_status(new_task_widget, self.status)
 
-            # Удаляем элемент из предыдущего списка
+            # Удаляем элемент из источника
             source = event.source()
             if source:
                 for i in range(source.count()):
                     item = source.item(i)
                     widget = source.itemWidget(item)
-                    if widget.get_description() == description and widget.get_done_date() == done_date:
+                    # Проверяем совпадение ID
+                    if widget.id() == task_id:
                         source.takeItem(i)
                         break
-
+            # Устанавливаем действие перемещения и принимаем событие
             event.setDropAction(Qt.DropAction.MoveAction)
             event.accept()
         else:
             event.ignore()
 
     def update_task_status(self, task_widget, status):
-        task_id = task_widget.get_id()  # Предполагаем, что id хранятся в виджете
+        task_id = task_widget.get_id()  # получаем ID
 
         # Обновление статуса задачи в базе данных
         conn = sqlite3.connect("tasks.db")
@@ -376,18 +427,16 @@ class TaskWidget(QWidget):
         # Устанавливаем главный макет на виджет
         self.setLayout(layout)
 
-    # получение описания
-    def get_description(self):
+    def get_description(self):  # получение описания
         return self.description
 
-    def get_done_date(self):
+    def get_done_date(self):  # получение даты
         return self.done_date
 
-    # получение id
-    def get_id(self):
+    def get_id(self):  # получение id
         return self.id
 
-    def get_status(self):
+    def get_status(self):  # получение статуса
         return self.status
 
 
