@@ -7,7 +7,6 @@
 
 
 from PyQt6 import QtCore, QtGui, QtWidgets
-from drag_drop_class import CustomListWidget
 
 
 class Ui_TaskManager(object):
@@ -51,7 +50,7 @@ class Ui_TaskManager(object):
 "   }\n"
 " ")
         self.done_label.setObjectName("done_label")
-        self.to_do_list = CustomListWidget(parent=TaskManager)
+        self.to_do_list = QtWidgets.QListWidget(parent=TaskManager)
         self.to_do_list.setGeometry(QtCore.QRect(10, 70, 351, 711))
         font = QtGui.QFont()
         font.setPointSize(11)
@@ -63,7 +62,7 @@ class Ui_TaskManager(object):
 "   \n"
 "")
         self.to_do_list.setObjectName("to_do_list")
-        self.doing_list = CustomListWidget(parent=TaskManager)
+        self.doing_list = QtWidgets.QListWidget(parent=TaskManager)
         self.doing_list.setGeometry(QtCore.QRect(360, 70, 351, 711))
         font = QtGui.QFont()
         font.setPointSize(11)
@@ -75,7 +74,7 @@ class Ui_TaskManager(object):
 "   \n"
 "")
         self.doing_list.setObjectName("doing_list")
-        self.done_list = CustomListWidget(parent=TaskManager)
+        self.done_list = QtWidgets.QListWidget(parent=TaskManager)
         self.done_list.setGeometry(QtCore.QRect(710, 70, 351, 711))
         font = QtGui.QFont()
         font.setPointSize(11)

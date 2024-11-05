@@ -1,16 +1,17 @@
 import sys
-from PyQt6 import uic
+from PyQt6 import uic, QtGui
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QPlainTextEdit,
     QDateEdit, QDialog, QDialogButtonBox,
     QFormLayout, QMessageBox, QWidget, QLabel,
-    QListWidgetItem, QVBoxLayout, QAbstractItemView,
-    QMenu, QInputDialog
+    QListWidgetItem, QVBoxLayout,
+    QMenu, QInputDialog, QListWidget, QAbstractItemView
 )
+from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDrag, QPixmap
+from PyQt6.QtCore import QDate, Qt, QRect, QMimeData, QByteArray, QDataStream, QIODevice
 from design import Ui_TaskManager
 from functools import partial
 from datetime import datetime
-from PyQt6.QtCore import QDate, Qt
 import sqlite3
 
 
@@ -20,14 +21,54 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         super(TaskManager, self).__init__()
         uic.loadUi('design.ui', self)
 
+        # переопределение колонок со статусами под кастомный QListWidget и задание стилей
+        self.to_do_list = CustomListWidget("to do", self)
+        self.to_do_list.setGeometry(QRect(10, 70, 351, 711))
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        self.to_do_list.setFont(font)
+        self.to_do_list.setStyleSheet("   QListWidget {\n"
+                                      "       border: 2px solid black;\n"
+                                      "       background-color: rgb(230, 230, 230);\n"
+                                      "   }\n"
+                                      "   \n"
+                                      "")
+        self.to_do_list.setObjectName("to_do_list")
+
+        self.doing_list = CustomListWidget("doing", self)
+        self.doing_list.setGeometry(QRect(360, 70, 351, 711))
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        self.doing_list.setFont(font)
+        self.doing_list.setStyleSheet("   QListWidget {\n"
+                                      "       border: 2px solid black;\n"
+                                      "       background-color: rgb(230, 230, 230);\n"
+                                      "   }\n"
+                                      "   \n"
+                                      "")
+        self.doing_list.setObjectName("doing_list")
+
+        self.done_list = CustomListWidget("done", self)
+        self.done_list.setGeometry(QRect(710, 70, 351, 711))
+        font = QtGui.QFont()
+        font.setPointSize(11)
+        self.done_list.setFont(font)
+        self.done_list.setStyleSheet("   QListWidget {\n"
+                                     "       border: 2px solid black;\n"
+                                     "       background-color: rgb(230, 230, 230);\n"
+                                     "   }\n"
+                                     "   \n"
+                                     "")
+        self.done_list.setObjectName("done_list")
+
         # создание бд
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
         cur.execute('''CREATE TABLE IF NOT EXISTS tasks
-                         (id INTEGER PRIMARY KEY,
-                          description TEXT NOT NULL,
-                          done_date TEXT,
-                          status TEXT)''')
+                                         (id INTEGER PRIMARY KEY,
+                                          description TEXT NOT NULL,
+                                          done_date TEXT,
+                                          status TEXT)''')
         conn.commit()
         conn.close()
 
@@ -53,11 +94,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             # вызываем контекстное меню нажатием правой кнопкой мыши по задаче
             task_list.customContextMenuRequested.connect(partial(self.show_context_menu, task_list=task_list))
             # устанавливаем режим перемещения
-            task_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
             task_list.setAcceptDrops(True)
-            task_list.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop)
-
-            task_list.currentItemChanged.connect(partial(self.item_clicked, task_list=task_list))
+            task_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
 
         self.show_tasks()
 
@@ -138,43 +176,6 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         self.add_form(self.generate_lst("done"), "done")
         self.add_form(self.generate_lst("expired"), "expired")
 
-    def item_clicked(self, arg, task_list):
-        # print(arg)
-        selected_items = task_list.selectedItems()
-        if selected_items:
-            print("элементы найдены")
-        else:
-            pass
-
-        for item in selected_items:
-            self.create_drop_event(item, task_list, self.front_status_dict[task_list])
-
-    # функция изменения статуса
-    def create_drop_event(self, list_item, task_list, status):
-        item = list_item  # Получаем элемент по позиции сброса
-        print(f"элемент {item} получен в функцию")
-        if item:
-            task_widget = task_list.itemWidget(item)  # Извлекаем виджет из элемента
-            if task_widget:
-                task_id = task_widget.get_id()  # Предполагаем, что id хранятся в виджете
-
-                # Обновление статуса задачи в базе данных
-                conn = sqlite3.connect("tasks.db")
-                cur = conn.cursor()
-                try:
-                    cur.execute('UPDATE tasks SET status = ? WHERE id = ?', (status, task_id))
-                    conn.commit()
-                    print(f"Статус задачи с ID {task_id} обновлен на {status}")
-                except sqlite3.Error as e:
-                    print("Ошибка базы данных:", e)
-                finally:
-                    conn.close()
-                    self.show_tasks()  # Обновляем список задач
-            else:
-                print("Не найден виджет элемента")
-        else:
-            print("Не найден элемент по позиции сброса")
-
     # отображение контекстного меню
     def show_context_menu(self, position, task_list):
         menu = QMenu(self)  # Создаем объект контекстного меню
@@ -229,12 +230,124 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                     self.show_tasks()
 
 
+class CustomListWidget(QListWidget):
+    def __init__(self, status, parent=None):
+        super(CustomListWidget, self).__init__(parent)
+        self.status = status  # Статус задач в данном списке
+
+        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSpacing(5)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            # Сохраняем позицию начала перетаскивания
+            self.drag_start_position = event.pos()
+        super().mousePressEvent(event)
+
+    def startDrag(self, supportedActions):
+        item = self.currentItem()
+        widget = self.itemWidget(item)
+        if widget is None:
+            return
+
+        # Создаем QMimeData и сохраняем данные
+        mime_data = QMimeData()
+        data = QByteArray()
+        stream = QDataStream(data, QIODevice.OpenModeFlag.WriteOnly)
+        stream.writeQString(widget.get_description())
+        stream.writeQString(widget.get_done_date())
+        stream.writeInt(widget.get_id())
+        mime_data.setData('application/x-item', data)
+
+        # Создаем изображение для drag
+        pixmap = QPixmap(widget.size())
+        widget.render(pixmap)
+
+        drag = QDrag(self)
+        drag.setMimeData(mime_data)
+        drag.setPixmap(pixmap)
+
+        # Вычисляем горячую точку (hotSpot)
+        if self.drag_start_position:
+            rect = self.visualItemRect(item)
+            hotSpot = self.drag_start_position - rect.topLeft()
+            drag.setHotSpot(hotSpot)
+
+        drag.exec(Qt.DropAction.MoveAction)
+
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasFormat('application/x-item'):
+            event.accept()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasFormat('application/x-item'):
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent):
+        if event.mimeData().hasFormat('application/x-item'):
+            data = event.mimeData().data('application/x-item')
+            stream = QDataStream(data, QIODevice.OpenModeFlag.ReadOnly)
+            description = stream.readQString()
+            done_date = stream.readQString()
+            task_id = stream.readInt()
+
+            # Добавляем элемент в текущий список
+            new_item = QListWidgetItem()
+            new_task_widget = TaskWidget(task_id, description, done_date, self.status)
+            new_item.setSizeHint(new_task_widget.sizeHint())
+            self.addItem(new_item)
+            self.setItemWidget(new_item, new_task_widget)
+
+            # Обновляем статус
+            self.update_task_status(new_task_widget, self.status)
+
+            # Удаляем элемент из предыдущего списка
+            source = event.source()
+            if source:
+                for i in range(source.count()):
+                    item = source.item(i)
+                    widget = source.itemWidget(item)
+                    if widget.get_description() == description and widget.get_done_date() == done_date:
+                        source.takeItem(i)
+                        break
+
+            event.setDropAction(Qt.DropAction.MoveAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def update_task_status(self, task_widget, status):
+        task_id = task_widget.get_id()  # Предполагаем, что id хранятся в виджете
+
+        # Обновление статуса задачи в базе данных
+        conn = sqlite3.connect("tasks.db")
+        cur = conn.cursor()
+        try:
+            cur.execute('UPDATE tasks SET status = ? WHERE id = ?', (status, task_id))
+            conn.commit()
+            print(f"Статус задачи с ID {task_id} обновлен на {status}")
+        except sqlite3.Error as e:
+            print("Ошибка базы данных:", e)
+        finally:
+            conn.close()
+
+
 # класс для создания формы задач
 class TaskWidget(QWidget):
     def __init__(self, id, description, done_date, status, parent=None):
         self.description = description
         self.id = id
         self.status = status
+        self.done_date = done_date
         super(TaskWidget, self).__init__(parent)
 
         # Основной контейнер для задачи
@@ -266,6 +379,9 @@ class TaskWidget(QWidget):
     # получение описания
     def get_description(self):
         return self.description
+
+    def get_done_date(self):
+        return self.done_date
 
     # получение id
     def get_id(self):
