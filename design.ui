@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Менеджер задач</string>
   </property>
   <widget class="QLabel" name="to_do_label">
    <property name="geometry">
@@ -24,7 +24,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>18</pointsize>
+     <pointsize>22</pointsize>
     </font>
    </property>
    <property name="styleSheet">
@@ -51,7 +51,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>18</pointsize>
+     <pointsize>22</pointsize>
     </font>
    </property>
    <property name="styleSheet">
@@ -77,7 +77,7 @@
    </property>
    <property name="font">
     <font>
-     <pointsize>18</pointsize>
+     <pointsize>22</pointsize>
     </font>
    </property>
    <property name="styleSheet">
@@ -152,6 +152,9 @@ border: 2px solid black;
      <pointsize>11</pointsize>
     </font>
    </property>
+   <property name="contextMenuPolicy">
+    <enum>Qt::NoContextMenu</enum>
+   </property>
    <property name="styleSheet">
     <string notr="true">   QListWidget {
        border: 2px solid black;
@@ -161,7 +164,7 @@ border: 2px solid black;
 </string>
    </property>
   </widget>
-  <widget class="QPushButton" name="add_to_do_btn">
+  <widget class="QPushButton" name="add_to_do_ex_btn">
    <property name="geometry">
     <rect>
      <x>160</x>
@@ -189,7 +192,7 @@ border: 2px solid black;
     <string>+</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="add_doing_btn">
+  <widget class="QPushButton" name="add_doing_ex_btn">
    <property name="geometry">
     <rect>
      <x>510</x>
@@ -217,7 +220,7 @@ border: 2px solid black;
     <string>+</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="add_done_btn">
+  <widget class="QPushButton" name="add_done_ex_btn">
    <property name="geometry">
     <rect>
      <x>860</x>

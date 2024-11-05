@@ -79,6 +79,7 @@ class Ui_TaskManager(object):
         font = QtGui.QFont()
         font.setPointSize(11)
         self.done_list.setFont(font)
+        self.done_list.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.NoContextMenu)
         self.done_list.setStyleSheet("   QListWidget {\n"
 "       border: 2px solid black;\n"
 "       background-color: rgb(230, 230, 230);\n"
@@ -86,12 +87,12 @@ class Ui_TaskManager(object):
 "   \n"
 "")
         self.done_list.setObjectName("done_list")
-        self.add_to_do_btn = QtWidgets.QPushButton(parent=TaskManager)
-        self.add_to_do_btn.setGeometry(QtCore.QRect(160, 710, 51, 51))
+        self.add_to_do_ex_btn = QtWidgets.QPushButton(parent=TaskManager)
+        self.add_to_do_ex_btn.setGeometry(QtCore.QRect(160, 710, 51, 51))
         font = QtGui.QFont()
         font.setPointSize(25)
-        self.add_to_do_btn.setFont(font)
-        self.add_to_do_btn.setStyleSheet("   QPushButton {\n"
+        self.add_to_do_ex_btn.setFont(font)
+        self.add_to_do_ex_btn.setStyleSheet("   QPushButton {\n"
 "       border-radius: 25px;\n"
 "       background-color: rgb(37, 208, 255);\n"
 "       border: 1,5px solid black;\n"
@@ -99,13 +100,13 @@ class Ui_TaskManager(object):
 "\n"
 "   \n"
 "")
-        self.add_to_do_btn.setObjectName("add_to_do_btn")
-        self.add_doing_btn = QtWidgets.QPushButton(parent=TaskManager)
-        self.add_doing_btn.setGeometry(QtCore.QRect(510, 710, 51, 51))
+        self.add_to_do_ex_btn.setObjectName("add_to_do_ex_btn")
+        self.add_doing_ex_btn = QtWidgets.QPushButton(parent=TaskManager)
+        self.add_doing_ex_btn.setGeometry(QtCore.QRect(510, 710, 51, 51))
         font = QtGui.QFont()
         font.setPointSize(25)
-        self.add_doing_btn.setFont(font)
-        self.add_doing_btn.setStyleSheet("   QPushButton {\n"
+        self.add_doing_ex_btn.setFont(font)
+        self.add_doing_ex_btn.setStyleSheet("   QPushButton {\n"
 "       border-radius: 25px;\n"
 "       background-color: rgb(37, 208, 255);\n"
 "       border: 1,5px solid black;\n"
@@ -113,13 +114,13 @@ class Ui_TaskManager(object):
 "\n"
 "   \n"
 "")
-        self.add_doing_btn.setObjectName("add_doing_btn")
-        self.add_done_btn = QtWidgets.QPushButton(parent=TaskManager)
-        self.add_done_btn.setGeometry(QtCore.QRect(860, 710, 51, 51))
+        self.add_doing_ex_btn.setObjectName("add_doing_ex_btn")
+        self.add_done_ex_btn = QtWidgets.QPushButton(parent=TaskManager)
+        self.add_done_ex_btn.setGeometry(QtCore.QRect(860, 710, 51, 51))
         font = QtGui.QFont()
         font.setPointSize(25)
-        self.add_done_btn.setFont(font)
-        self.add_done_btn.setStyleSheet("   QPushButton {\n"
+        self.add_done_ex_btn.setFont(font)
+        self.add_done_ex_btn.setStyleSheet("   QPushButton {\n"
 "       border-radius: 25px;\n"
 "       background-color: rgb(37, 208, 255);\n"
 "       border: 1,5px solid black;\n"
@@ -127,7 +128,7 @@ class Ui_TaskManager(object):
 "\n"
 "   \n"
 "")
-        self.add_done_btn.setObjectName("add_done_btn")
+        self.add_done_ex_btn.setObjectName("add_done_ex_btn")
         self.sort_to_do_btn = QtWidgets.QPushButton(parent=TaskManager)
         self.sort_to_do_btn.setGeometry(QtCore.QRect(300, 20, 51, 41))
         font = QtGui.QFont()
@@ -164,13 +165,13 @@ class Ui_TaskManager(object):
 
     def retranslateUi(self, TaskManager):
         _translate = QtCore.QCoreApplication.translate
-        TaskManager.setWindowTitle(_translate("TaskManager", "Form"))
+        TaskManager.setWindowTitle(_translate("TaskManager", "Менеджер задач"))
         self.to_do_label.setText(_translate("TaskManager", "To Do"))
         self.doing_label.setText(_translate("TaskManager", "Doing"))
         self.done_label.setText(_translate("TaskManager", "Done"))
-        self.add_to_do_btn.setText(_translate("TaskManager", "+"))
-        self.add_doing_btn.setText(_translate("TaskManager", "+"))
-        self.add_done_btn.setText(_translate("TaskManager", "+"))
+        self.add_to_do_ex_btn.setText(_translate("TaskManager", "+"))
+        self.add_doing_ex_btn.setText(_translate("TaskManager", "+"))
+        self.add_done_ex_btn.setText(_translate("TaskManager", "+"))
         self.sort_to_do_btn.setText(_translate("TaskManager", "• —\n"
 "• —"))
         self.sort_doing_btn.setText(_translate("TaskManager", "• —\n"
