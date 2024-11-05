@@ -367,7 +367,7 @@ class CustomListWidget(QListWidget):
                     item = source.item(i)
                     widget = source.itemWidget(item)
                     # Проверяем совпадение ID
-                    if widget.id() == task_id:
+                    if widget.get_id() == task_id:
                         source.takeItem(i)
                         break
             # Устанавливаем действие перемещения и принимаем событие
