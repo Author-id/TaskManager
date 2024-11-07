@@ -41,11 +41,13 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         # создание бд
         conn = sqlite3.connect("tasks.db")
         cur = conn.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS tasks
-                                         (id INTEGER PRIMARY KEY,
-                                          description TEXT NOT NULL,
-                                          done_date TEXT,
-                                          status TEXT)''')
+        cur.execute(
+            '''CREATE TABLE IF NOT EXISTS tasks
+             (id INTEGER PRIMARY KEY,
+              description TEXT NOT NULL,
+              done_date TEXT,
+              status TEXT)'''
+        )
         conn.commit()
         conn.close()
 
