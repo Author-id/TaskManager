@@ -46,7 +46,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
              (id INTEGER PRIMARY KEY,
               description TEXT NOT NULL,
               done_date TEXT,
-              status TEXT)'''
+              status TEXT,
+              marked INTEGER NOT NULL)'''
         )
         conn.commit()
         conn.close()
@@ -98,8 +99,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         cur = conn.cursor()
         try:
             cur.execute('''
-                        INSERT INTO tasks (description, done_date, status) VALUES (?, ?, ?)
-                    ''', (description, done_date, status))
+                        INSERT INTO tasks (description, done_date, status, marked) VALUES (?, ?, ?, ?)
+                    ''', (description, done_date, status, 0))
         except sqlite3.Error as error:
             print(f"Ошибка: {error}")
         finally:
@@ -121,11 +122,11 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         cur.execute("""
         UPDATE tasks
         SET status = 'expired'
-        WHERE date(done_date) < date('now')
+        WHERE date(done_date) < date('now') and status != 'done'
         """)
         conn.commit()
         result = cur.execute("""
-        SELECT id, description, done_date FROM tasks WHERE status = ?
+        SELECT id, description, done_date, marked FROM tasks WHERE status = ?
         """, (status,)).fetchall()
         if status in self.sorted_lists:  # сортируем по дате
             result.sort(key=lambda x: x[2])
@@ -139,7 +140,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
 
         for task in tasks:
             item = QListWidgetItem()
-            task_widget = TaskWidget(task[0], task[1], task[2], status)
+            task_widget = TaskWidget(task[0], task[1], task[2], status, task[3])
             item.setSizeHint(task_widget.sizeHint())
 
             # добавляем задачи в колонки
@@ -164,6 +165,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
     def show_context_menu(self, position, task_list):
         menu = QMenu(self)  # Создаем объект контекстного меню
 
+        mark_action = menu.addAction("Важное")  # пометить задачу как важную
         edit_action = menu.addAction("Редактировать")
         delete_action = menu.addAction("Удалить")
 
@@ -173,6 +175,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             self.edit_task(task_list)
         elif action == delete_action:
             self.delete_task(task_list)
+        elif action == mark_action:
+            self.mark_task(task_list)
 
     # редактирование задач
     def edit_task(self, task_list):
@@ -181,7 +185,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             task_widget = task_list.itemWidget(item)  # получаем виджет
             if task_widget:
                 old_description = task_widget.get_description()  # достаем старое описание
-                new_description, ok = QInputDialog.getText(self, 'Редактирование задачи', 'Описание:',
+                new_description, ok = QInputDialog.getText(self, "Редактирование задачи", "Описание:",
                                                            text=old_description)
                 if ok and new_description:
                     conn = sqlite3.connect("tasks.db")
@@ -212,6 +216,24 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                     cur.execute("DELETE FROM tasks WHERE id = ?", (current_id,))
                     conn.commit()
                     self.show_tasks()
+
+    # функция для пометки задач
+    def mark_task(self, task_list):
+        item = task_list.currentItem()
+        if item:
+            task_widget = task_list.itemWidget(item)
+            if task_widget:
+                task_id = task_widget.get_id()
+                conn = sqlite3.connect("tasks.db")
+                cur = conn.cursor()
+                # обновляем значение поля marked
+                if task_widget.get_marked() == 0:
+                    cur.execute("UPDATE tasks SET marked = ? WHERE id = ?", (1, task_id))
+                else:
+                    cur.execute("UPDATE tasks SET marked = ? WHERE id = ?", (0, task_id))
+                conn.commit()
+                conn.close()
+                self.show_tasks()
 
 
 # кастомный расширенный класс для реализации режима DragDropMde
@@ -246,6 +268,7 @@ class CustomListWidget(QListWidget):
         stream.writeQString(widget.get_description())
         stream.writeQString(widget.get_done_date())
         stream.writeInt(widget.get_id())
+        stream.writeInt(widget.get_marked())
         mime_data.setData('application/x-item', data)
 
         # Создаем изображение, чтобы отобразить во время перетаскивания
@@ -268,7 +291,7 @@ class CustomListWidget(QListWidget):
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         # Проверяем формат данных и решаем принимать или игнорировать событие
-        if event.mimeData().hasFormat('application/x-item'):
+        if event.mimeData().hasFormat('application/x-item'):  # проверяем что объект нестандартного типа
             event.accept()
         else:
             event.ignore()
@@ -290,10 +313,11 @@ class CustomListWidget(QListWidget):
             description = stream.readQString()
             done_date = stream.readQString()
             task_id = stream.readInt()
+            is_marked = stream.readInt()
 
             # Подготовка к добавлению нового элемента в текущий список
             new_item = QListWidgetItem()
-            new_task_widget = TaskWidget(task_id, description, done_date, self.status)
+            new_task_widget = TaskWidget(task_id, description, done_date, self.status, is_marked)
             new_item.setSizeHint(new_task_widget.sizeHint())
             # Добавляем элемент в список и привязываем к нему виджет
             self.addItem(new_item)
@@ -335,21 +359,31 @@ class CustomListWidget(QListWidget):
 
 # класс для создания формы задач
 class TaskWidget(QWidget):
-    def __init__(self, id, description, done_date, status, parent=None):
+    def __init__(self, id, description, done_date, status, is_marked, parent=None):
         self.description = description
         self.id = id
         self.status = status
         self.done_date = done_date
+        self.is_marked = is_marked
         super(TaskWidget, self).__init__(parent)
 
-        # Основной контейнер для задачи
-        self.setStyleSheet("""
-                    background-color: white;
-                    border-radius: 10px;
-                    border: 1px solid black;
-                    padding: 6px;
-                    color: black;
-                """)
+        # основной контейнер для задачи
+        if is_marked == 0:
+            self.setStyleSheet("""
+                background-color: white;
+                border-radius: 10px;
+                border: 1px solid black;
+                padding: 4px;
+                color: black;
+            """)
+        else:
+            self.setStyleSheet("""
+                background-color: rgb(253, 252, 223);
+                border-radius: 10px;
+                border: 1px solid rgb(196, 203, 116);
+                padding: 4px;
+                color: black;
+            """)
 
         # Создаем вертикальный контейнер
         layout = QVBoxLayout()
@@ -357,6 +391,7 @@ class TaskWidget(QWidget):
         # Соединяем описание и дату в одной метке
         self.task_info_label = QLabel(f"{description}\n{done_date}")
         self.task_info_label.setStyleSheet("font-size: 18px;")
+
         # если до дедлайна остался 1 день или задача просрочена - выделяем задачу
         if ((datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days <= 1
             and status != "done") or status == "expired":
@@ -379,6 +414,9 @@ class TaskWidget(QWidget):
 
     def get_status(self):  # получение статуса
         return self.status
+
+    def get_marked(self):  # получение поля marked
+        return self.is_marked
 
 
 # класс для собственного диалога
