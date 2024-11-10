@@ -111,6 +111,9 @@ border: 2px solid black;
        border: 2px solid black;
 	   background-color: rgb(230, 230, 230);
    }
+   QListWidget::item:selected {
+       background-color: transparent;
+   }
    
 </string>
    </property>
@@ -133,6 +136,9 @@ border: 2px solid black;
     <string notr="true">   QListWidget {
        border: 2px solid black;
        background-color: rgb(230, 230, 230);
+   }
+   QListWidget::item:selected {
+       background-color: transparent;
    }
    
 </string>
@@ -159,6 +165,9 @@ border: 2px solid black;
     <string notr="true">   QListWidget {
        border: 2px solid black;
        background-color: rgb(230, 230, 230);
+   }
+   QListWidget::item:selected {
+       background-color: transparent;
    }
    
 </string>

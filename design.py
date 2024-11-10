@@ -16,7 +16,7 @@ class Ui_TaskManager(object):
         self.to_do_label = QtWidgets.QLabel(parent=TaskManager)
         self.to_do_label.setGeometry(QtCore.QRect(10, 10, 351, 61))
         font = QtGui.QFont()
-        font.setPointSize(18)
+        font.setPointSize(22)
         self.to_do_label.setFont(font)
         self.to_do_label.setStyleSheet("   QLabel {\n"
 "       background-color: rgb(205, 161, 255);\n"
@@ -29,7 +29,7 @@ class Ui_TaskManager(object):
         self.doing_label = QtWidgets.QLabel(parent=TaskManager)
         self.doing_label.setGeometry(QtCore.QRect(360, 10, 351, 61))
         font = QtGui.QFont()
-        font.setPointSize(18)
+        font.setPointSize(22)
         self.doing_label.setFont(font)
         self.doing_label.setStyleSheet("   QLabel {\n"
 "       background-color: rgb(119, 180, 255);\n"
@@ -41,7 +41,7 @@ class Ui_TaskManager(object):
         self.done_label = QtWidgets.QLabel(parent=TaskManager)
         self.done_label.setGeometry(QtCore.QRect(710, 10, 351, 61))
         font = QtGui.QFont()
-        font.setPointSize(18)
+        font.setPointSize(22)
         self.done_label.setFont(font)
         self.done_label.setStyleSheet("   QLabel {\n"
 "    background-color: rgb(74, 244, 36);\n"
@@ -59,6 +59,9 @@ class Ui_TaskManager(object):
 "       border: 2px solid black;\n"
 "       background-color: rgb(230, 230, 230);\n"
 "   }\n"
+"   QListWidget::item:selected {\n"
+"       background-color: transparent;\n"
+"   }\n"
 "   \n"
 "")
         self.to_do_list.setObjectName("to_do_list")
@@ -70,6 +73,9 @@ class Ui_TaskManager(object):
         self.doing_list.setStyleSheet("   QListWidget {\n"
 "       border: 2px solid black;\n"
 "       background-color: rgb(230, 230, 230);\n"
+"   }\n"
+"   QListWidget::item:selected {\n"
+"       background-color: transparent;\n"
 "   }\n"
 "   \n"
 "")
@@ -83,6 +89,9 @@ class Ui_TaskManager(object):
         self.done_list.setStyleSheet("   QListWidget {\n"
 "       border: 2px solid black;\n"
 "       background-color: rgb(230, 230, 230);\n"
+"   }\n"
+"   QListWidget::item:selected {\n"
+"       background-color: transparent;\n"
 "   }\n"
 "   \n"
 "")
