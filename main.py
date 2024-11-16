@@ -71,6 +71,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
             # устанавливаем режим перемещения
             task_list.setAcceptDrops(True)
             task_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+            # установка расстояния между объектами
+            task_list.setSpacing(-4)
 
         self.show_tasks()
 
@@ -164,7 +166,9 @@ class TaskManager(QMainWindow, Ui_TaskManager):
     # отображение контекстного меню
     def show_context_menu(self, position, task_list):
         menu = QMenu(self)  # Создаем объект контекстного меню
-
+        menu.setStyleSheet("""
+            border: 1px solid black;
+        """)
         mark_action = menu.addAction("Важное")  # пометить задачу как важную
         edit_action = menu.addAction("Редактировать")
         delete_action = menu.addAction("Удалить")
@@ -368,7 +372,7 @@ class TaskWidget(QWidget):
         super(TaskWidget, self).__init__(parent)
 
         # основной контейнер для задачи
-        if is_marked == 0:
+        if is_marked == 0:  # проверяем задачу на пометку "важное"
             self.setStyleSheet("""
                 background-color: white;
                 border-radius: 10px;
@@ -378,9 +382,9 @@ class TaskWidget(QWidget):
             """)
         else:
             self.setStyleSheet("""
-                background-color: rgb(253, 252, 223);
+                background-color: rgb(255, 249, 210);
                 border-radius: 10px;
-                border: 1px solid rgb(196, 203, 116);
+                border: 1px solid rgb(202, 159, 58);
                 padding: 4px;
                 color: black;
             """)
@@ -389,11 +393,12 @@ class TaskWidget(QWidget):
         layout = QVBoxLayout()
 
         # Соединяем описание и дату в одной метке
-        self.task_info_label = QLabel(f"{description}\n{done_date}")
+        done_date_obj = datetime.strptime(done_date, "%Y-%m-%d")  # преобразовываем в нужный формат
+        self.task_info_label = QLabel(f"{description}\n{done_date_obj.strftime('%d.%m.%Y')}")
         self.task_info_label.setStyleSheet("font-size: 18px;")
 
         # если до дедлайна остался 1 день или задача просрочена - выделяем задачу
-        if ((datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days <= 1
+        if ((datetime.strptime(done_date, "%Y-%m-%d") - datetime.now()).days < 1
             and status != "done") or status == "expired":
             self.task_info_label.setStyleSheet("""color: red; font-size: 18px;""")
 
