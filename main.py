@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDrag, QPixmap
 from PyQt6.QtCore import QDate, Qt, QMimeData, QByteArray, QDataStream, QIODevice
-from design import Ui_TaskManager
+from TaskManager.dist.design import Ui_TaskManager
 from functools import partial
 from datetime import datetime
 import sqlite3
@@ -19,7 +19,7 @@ import sqlite3
 class TaskManager(QMainWindow, Ui_TaskManager):
     def __init__(self):
         super(TaskManager, self).__init__()
-        uic.loadUi('design.ui', self)
+        uic.loadUi('dist/design.ui', self)
 
         self.sorted_lists = []  # отсортированные списки
         self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
@@ -188,6 +188,7 @@ class TaskManager(QMainWindow, Ui_TaskManager):
         if item:
             task_widget = task_list.itemWidget(item)  # получаем виджет
             if task_widget:
+                task_id = task_widget.get_id()
                 old_description = task_widget.get_description()  # достаем старое описание
                 new_description, ok = QInputDialog.getText(self, "Редактирование задачи", "Описание:",
                                                            text=old_description)
@@ -195,8 +196,8 @@ class TaskManager(QMainWindow, Ui_TaskManager):
                     conn = sqlite3.connect("tasks.db")
                     cur = conn.cursor()
                     # обновляем описание
-                    cur.execute("UPDATE tasks SET description = ? WHERE description = ?",
-                                (new_description, old_description))
+                    cur.execute("UPDATE tasks SET description = ? WHERE id = ?",
+                                (new_description, task_id))
                     conn.commit()
                     conn.close()
                     self.show_tasks()
