@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDrag, QPixmap
 from PyQt6.QtCore import QDate, Qt, QMimeData, QByteArray, QDataStream, QIODevice
-from TaskManager.dist.design import Ui_TaskManager
+from design import Ui_TaskManager
 from functools import partial
 from datetime import datetime
 import sqlite3
@@ -19,7 +19,7 @@ import sqlite3
 class TaskManager(QMainWindow, Ui_TaskManager):
     def __init__(self):
         super(TaskManager, self).__init__()
-        uic.loadUi('dist/design.ui', self)
+        uic.loadUi('design.ui', self)
 
         self.sorted_lists = []  # отсортированные списки
         self.status_dict = {"to do": self.to_do_list, "doing": self.doing_list, "done": self.done_list}
